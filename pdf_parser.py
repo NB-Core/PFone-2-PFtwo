@@ -84,6 +84,8 @@ def extract_images(pdf_path, out_dir, use_metadata=True):
             label = None
             if use_metadata and len(img) > 7 and img[7]:
                 label = img[7]
+                if re.fullmatch(r"(?:fzimg\d+|im\d+|image\d+)", label.lower()):
+                    label = None
             if use_metadata and not label:
                 rect = page.get_image_bbox(xref)
                 label = _find_nearby_text(rect, text_blocks)
