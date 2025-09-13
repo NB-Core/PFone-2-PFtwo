@@ -8,8 +8,10 @@ import sys
 
 import pytest  # type: ignore  # pylint: disable=import-error
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 sys.path.append(str(Path(__file__).resolve().parent))
 from utils import generate_pdf  # pylint: disable=wrong-import-position
+import pdf_parser  # pylint: disable=wrong-import-position,import-error
 
 pytest.importorskip("fitz")
 
@@ -101,3 +103,52 @@ def test_cli_hierarchy(tmp_path):
     assert len(pack) == 1
     assert pack[0]["name"].startswith("label_1")
     assert pack[0]["folder"] == "Section 1/Subsection 1.1"
+
+
+def test_cli_no_metadata(tmp_path):
+    """Fallback names are used and folders are empty when metadata is ignored."""
+
+    pdf = generate_pdf(tmp_path / "nometa.pdf")
+    out = tmp_path / "out"
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve().parents[1] / "pdf_parser.py"),
+        str(pdf),
+        str(out),
+        "--no-metadata",
+        "--pages",
+        "1-1",
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
+    entry = pack[0]
+    assert entry["name"].startswith("p1_img1")
+    assert "folder" not in entry
+
+
+def test_cli_note(tmp_path):
+    """Notes are attached to compendium entries when provided."""
+
+    pdf = generate_pdf(tmp_path / "note.pdf")
+    out = tmp_path / "out"
+    note = "Remember the traps"
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve().parents[1] / "pdf_parser.py"),
+        str(pdf),
+        str(out),
+        "--note",
+        note,
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
+    assert pack[0]["notes"] == note
+
+
+def test_invalid_pages_range():
+    """An invalid page range causes the CLI to exit with an error."""
+
+    with pytest.raises(SystemExit):
+        pdf_parser.main(["dummy.pdf", "out", "--pages", "invalid"])
