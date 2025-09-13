@@ -49,6 +49,7 @@ def test_cli_integration(tmp_path):
     assert "tags" in entry
     assert entry["flags"]["pfpdf"]["module_id"] == "custom"
     assert entry["flags"]["pfpdf"]["title"] == "Custom"
+    assert entry["pages"][0]["src"] == images[0].name
 
 
 def test_env_overrides(tmp_path):
