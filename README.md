@@ -2,6 +2,10 @@
 
 This repository contains a PDF parser that extracts embedded images and builds a [Foundry VTT](https://foundryvtt.com/) `JournalEntry` compendium.
 
+## Requirements
+
+- Python 3.10 or 3.11
+
 ## Usage
 
 1. Set up the Python environment:
