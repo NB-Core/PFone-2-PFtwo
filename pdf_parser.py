@@ -107,7 +107,7 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
             pix.save(ctx["out_dir"] / name)
             img_data = {
                 "name": name,
-                "path": str(ctx["out_dir"] / name),
+                "path": name,
                 "width": pix.width,
                 "height": pix.height,
                 "page": page_index,
@@ -136,7 +136,8 @@ def extract_images(
     Returns a tuple ``(images, labels)`` where ``images`` is a list of
     dictionaries describing each saved image and ``labels`` maps metadata
     labels to the corresponding image name. Each image dictionary contains
-    ``name``, ``path``, ``width``, ``height``, ``page`` and ``folders``. When
+    ``name``, ``path`` (the relative filename), ``width``, ``height``, ``page``
+    and ``folders``. When
     ``use_metadata`` is ``True`` image names attempt to use metadata or nearby
     text and page bookmarks supply folder hierarchy. Otherwise, names fall back
     to ``p{page}_img{index}`` and ``folders`` is empty. When ``include_text`` is
@@ -202,25 +203,28 @@ def build_compendium_entries(
     note: str | None = None,
     module_id: str | None = None,
     title: str | None = None,
-):
+    image_dir: str | Path | None = None,
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Build JournalEntry definitions for *images*.
 
     Each entry in *images* should be a dict as returned by ``extract_images``.
     When ``tags_from_text`` is ``True`` folder names and page text are used to
     populate a ``tags`` list on each entry. ``note`` sets a ``notes`` field on
     every entry when provided. ``module_id`` and ``title`` are stored as flags
-    when supplied.
+    when supplied. ``image_dir`` optionally prefixes the image path for the
+    ``src`` field, keeping the path relative for portability.
     """
 
     entries = []
     for img in images:
+        src_path = str(Path(image_dir) / img["path"]) if image_dir else img["path"]
         entry = {
             "name": img["name"],
             "pages": [
                 {
                     "name": img["name"],
                     "type": "image",
-                    "src": img["path"],
+                    "src": src_path,
                 }
             ],
         }

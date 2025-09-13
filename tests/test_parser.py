@@ -24,14 +24,16 @@ def test_build_compendium_entries():
     images = [
         {
             "name": "map.png",
-            "path": "maps/map.png",
+            "path": "map.png",
             "width": 100,
             "height": 200,
             "text": "Dungeon Map",
             "folders": ["Dungeon"],
         }
     ]
-    entries = build_compendium_entries(images, tags_from_text=True, note="Check traps")
+    entries = build_compendium_entries(
+        images, tags_from_text=True, note="Check traps", image_dir="maps"
+    )
     entry = entries[0]
     assert entry["name"] == "map.png"
     assert entry["pages"][0]["src"] == "maps/map.png"
@@ -53,6 +55,7 @@ def test_extract_images_with_text(tmp_path):
     images, _ = extract_images(pdf, out, include_text=True)
     assert "text" in images[0]
     assert "Label 1" in images[0]["text"]
+    assert images[0]["path"] == images[0]["name"]
 
 
 def test_extract_text():
