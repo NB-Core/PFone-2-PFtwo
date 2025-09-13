@@ -152,3 +152,11 @@ def test_invalid_pages_range():
 
     with pytest.raises(SystemExit):
         pdf_parser.main(["dummy.pdf", "out", "--pages", "invalid"])
+
+
+@pytest.mark.parametrize("page_spec", ["5-2", "1-", "3"])
+def test_reversed_or_malformed_pages_range(page_spec):
+    """Reversed or malformed page ranges exit with an error."""
+
+    with pytest.raises(SystemExit):
+        pdf_parser.main(["dummy.pdf", "out", "--pages", page_spec])

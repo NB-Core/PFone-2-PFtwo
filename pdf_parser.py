@@ -283,9 +283,13 @@ def main(argv: List[str] | None = None) -> None:
     parsed_range = None
     if args.pages:
         try:
-            parsed_range = tuple(map(int, args.pages.split("-", 1)))
+            start_str, end_str = args.pages.split("-", 1)
+            start, end = int(start_str), int(end_str)
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
+        if start > end:
+            raise SystemExit("--pages start must be <= end.")
+        parsed_range = (start, end)
 
     extracted_images, _ = extract_images(
         args.pdf,
