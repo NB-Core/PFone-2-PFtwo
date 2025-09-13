@@ -98,7 +98,6 @@ def test_cli_hierarchy(tmp_path):
     assert module["packs"][0]["type"] == "JournalEntry"
 
     pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
-    assert len(pack) == 2
+    assert len(pack) == 1
     assert pack[0]["name"].startswith("label_1")
     assert pack[0]["folder"] == "Section 1/Subsection 1.1"
-    assert pack[1]["folder"] == "Section 2"

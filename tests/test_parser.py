@@ -42,7 +42,7 @@ def test_build_compendium_entries():
 def test_extract_images(tmp_path):
     """Ensure image extraction returns an empty list for PDFs without images."""
     pdf = Path(__file__).parent / "data" / "sample.pdf"
-    images = extract_images(pdf, tmp_path)
+    images, _ = extract_images(pdf, tmp_path)
     assert len(images) == 0
 
 
@@ -50,7 +50,7 @@ def test_extract_images_with_text(tmp_path):
     """Text of each page is captured when requested."""
     pdf = generate_pdf(tmp_path / "text.pdf")
     out = tmp_path / "out"
-    images = extract_images(pdf, out, include_text=True)
+    images, _ = extract_images(pdf, out, include_text=True)
     assert "text" in images[0]
     assert "Label 1" in images[0]["text"]
 
@@ -68,13 +68,14 @@ def test_labels_and_hierarchy(tmp_path):
 
     pdf = generate_pdf(tmp_path / "labeled.pdf")
     out = tmp_path / "out"
-    images = extract_images(pdf, out)
+    images, labels = extract_images(pdf, out)
+    assert len(images) == 1
     assert images[0]["name"].startswith("label_1")
     assert images[0]["folders"] == ["Section 1", "Subsection 1.1"]
-    assert images[1]["folders"] == ["Section 2"]
+    assert labels["Label 2"] == images[0]["name"]
 
     out2 = tmp_path / "out2"
-    images_nometa = extract_images(pdf, out2, use_metadata=False)
+    images_nometa, _ = extract_images(pdf, out2, use_metadata=False)
     assert images_nometa[0]["name"].startswith("p1_img1")
     assert images_nometa[0]["folders"] == []
 
@@ -84,11 +85,11 @@ def test_compendium_folder_labels(tmp_path):
 
     pdf = generate_pdf(tmp_path / "compendium.pdf")
     out = tmp_path / "out"
-    images = extract_images(pdf, out)
+    images, _ = extract_images(pdf, out)
     entries = build_compendium_entries(images)
+    assert len(entries) == 1
     assert entries[0]["name"].startswith("label_1")
     assert entries[0]["folder"] == "Section 1/Subsection 1.1"
-    assert entries[1]["folder"] == "Section 2"
 
 
 def test_metadata_tagging(tmp_path):
@@ -96,7 +97,7 @@ def test_metadata_tagging(tmp_path):
 
     pdf = generate_pdf(tmp_path / "tags.pdf")
     out = tmp_path / "out"
-    images = extract_images(pdf, out, include_text=True)
+    images, _ = extract_images(pdf, out, include_text=True)
     entries = build_compendium_entries(images, tags_from_text=True)
     tags = entries[0]["tags"]
     assert "section 1" in tags
@@ -108,6 +109,18 @@ def test_extract_images_page_range(tmp_path):
 
     pdf = generate_pdf(tmp_path / "range.pdf")
     out = tmp_path / "out"
-    images = extract_images(pdf, out, page_range=(2, 2))
+    images, _ = extract_images(pdf, out, page_range=(2, 2))
     assert len(images) == 1
     assert images[0]["page"] == 2
+
+
+def test_skip_duplicate_images(tmp_path):
+    """Duplicate images are only saved once and labels map to the first."""
+
+    pdf = generate_pdf(tmp_path / "dup.pdf")
+    out = tmp_path / "out"
+    images, labels = extract_images(pdf, out)
+    assert len(images) == 1
+    assert len(list(out.iterdir())) == 1
+    assert labels["Label 1"] == images[0]["name"]
+    assert labels["Label 2"] == images[0]["name"]

@@ -1,6 +1,7 @@
 """Utilities for extracting PDF data and building Foundry VTT compendiums."""
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -84,7 +85,22 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
 
     use_metadata = ctx["use_metadata"]
     for img_index, img in enumerate(page.get_images(full=True), start=1):
-        pix = fitz.Pixmap(page.parent, img[0])
+        xref = img[0]
+        if xref in ctx["seen_xrefs"]:
+            existing = ctx["seen_xrefs"][xref]
+            label = _image_label(page, img, (page_index, img_index), use_metadata)
+            ctx["labels"].setdefault(label, existing["name"])
+            continue
+
+        pix = fitz.Pixmap(page.parent, xref)
+        checksum = hashlib.md5(pix.tobytes()).hexdigest()
+        if checksum in ctx["seen_checksums"]:
+            existing = ctx["seen_checksums"][checksum]
+            ctx["seen_xrefs"][xref] = existing
+            label = _image_label(page, img, (page_index, img_index), use_metadata)
+            ctx["labels"].setdefault(label, existing["name"])
+            continue
+
         label = _image_label(page, img, (page_index, img_index), use_metadata)
         name = (
             f"{_unique_name(label, ctx['used_names'])}."
@@ -103,6 +119,9 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
         if ctx.get("include_text") and page_text is not None:
             img_data["text"] = page_text
         ctx["images"].append(img_data)
+        ctx["seen_xrefs"][xref] = img_data
+        ctx["seen_checksums"][checksum] = img_data
+        ctx["labels"].setdefault(label, name)
 
 
 def extract_images(
@@ -114,14 +133,17 @@ def extract_images(
 ):
     """Extract images from a PDF and save them to *out_dir*.
 
-    Returns a list of dictionaries describing each extracted image with keys:
-    ``name``, ``path``, ``width``, ``height``, ``page`` and ``folders``.
-    When ``use_metadata`` is ``True`` image names attempt to use metadata or
-    nearby text and page bookmarks supply folder hierarchy. Otherwise, names
-    fall back to ``p{page}_img{index}`` and ``folders`` is empty. When
-    ``include_text`` is ``True`` the full text of the source page is captured
-    in a ``text`` field for each image. ``page_range`` may be a tuple of
-    ``(start, end)`` page numbers limiting extraction to that inclusive range.
+    Returns a tuple ``(images, labels)`` where ``images`` is a list of
+    dictionaries describing each saved image and ``labels`` maps metadata
+    labels to the corresponding image name. Each image dictionary contains
+    ``name``, ``path``, ``width``, ``height``, ``page`` and ``folders``. When
+    ``use_metadata`` is ``True`` image names attempt to use metadata or nearby
+    text and page bookmarks supply folder hierarchy. Otherwise, names fall back
+    to ``p{page}_img{index}`` and ``folders`` is empty. When ``include_text`` is
+    ``True`` the full text of the source page is captured in a ``text`` field
+    for each image. ``page_range`` may be a tuple of ``(start, end)`` page
+    numbers limiting extraction to that inclusive range. Duplicate images are
+    identified by xref or checksum and only saved once.
     """
 
     pdf_path = Path(pdf_path)
@@ -133,13 +155,16 @@ def extract_images(
 
     doc = fitz.open(pdf_path)
     hierarchy = _page_hierarchy(doc) if use_metadata else {}
-    images = []
+    images: List[dict] = []
     ctx = {
         "out_dir": out_dir,
         "images": images,
         "used_names": set(),
         "use_metadata": use_metadata,
         "include_text": include_text,
+        "seen_xrefs": {},
+        "seen_checksums": {},
+        "labels": {},
     }
 
     for page_index, page in enumerate(doc, start=1):
@@ -153,7 +178,7 @@ def extract_images(
             ctx,
             page_text=page_text,
         )
-    return images
+    return images, ctx["labels"]
 
 
 def extract_text(pdf_path):
@@ -262,7 +287,7 @@ def main(argv: List[str] | None = None) -> None:
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
 
-    extracted_images = extract_images(
+    extracted_images, _ = extract_images(
         args.pdf,
         args.out,
         use_metadata=not args.no_metadata,
