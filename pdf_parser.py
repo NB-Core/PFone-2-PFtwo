@@ -18,22 +18,16 @@ def _slugify(text):
     return slug or "image"
 
 
-def _find_nearby_text(rect, blocks, max_dist=20):
-    """Return text from *blocks* closest to *rect* within *max_dist*."""
+def _find_nearby_text(page, rect, max_dist=20):
+    """Return text closest to ``rect`` on ``page`` within ``max_dist``."""
 
-    x0, y0, x1, y1 = rect
-    best = None
-    distance = max_dist
-    for bx0, by0, bx1, by1, text, *_ in blocks:
-        if bx1 < x0 or bx0 > x1:
-            continue
-        if by1 <= y0 and y0 - by1 < distance:
-            best = text
-            distance = y0 - by1
-        elif by0 >= y1 and by0 - y1 < distance:
-            best = text
-            distance = by0 - y1
-    return best.strip() if best else None
+    below = fitz.Rect(rect.x0, rect.y1, rect.x1, rect.y1 + max_dist)
+    text = page.get_textbox(below).strip()
+    if text:
+        return text
+    above = fitz.Rect(rect.x0, rect.y0 - max_dist, rect.x1, rect.y0)
+    text = page.get_textbox(above).strip()
+    return text or None
 
 
 def _page_hierarchy(doc):
@@ -53,7 +47,7 @@ def _page_hierarchy(doc):
     return hierarchy
 
 
-def _image_label(page, img, idx, text_blocks, use_metadata):
+def _image_label(page, img, idx, use_metadata):
     """Return a label for ``img`` on ``page``."""
 
     page_index, img_index = idx
@@ -64,7 +58,7 @@ def _image_label(page, img, idx, text_blocks, use_metadata):
             label = None
     if use_metadata and not label:
         rect = page.get_image_bbox(img)
-        label = _find_nearby_text(rect, text_blocks)
+        label = _find_nearby_text(page, rect)
     if not label:
         label = f"p{page_index}_img{img_index}"
     return label
@@ -87,12 +81,9 @@ def _process_page(page, page_index, folders, ctx):
     """Extract images from a single page."""
 
     use_metadata = ctx["use_metadata"]
-    text_blocks = page.get_text("blocks") if use_metadata else []
     for img_index, img in enumerate(page.get_images(full=True), start=1):
         pix = fitz.Pixmap(page.parent, img[0])
-        label = _image_label(
-            page, img, (page_index, img_index), text_blocks, use_metadata
-        )
+        label = _image_label(page, img, (page_index, img_index), use_metadata)
         name = (
             f"{_unique_name(label, ctx['used_names'])}."
             f"{'png' if pix.alpha else 'jpg'}"
