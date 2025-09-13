@@ -1,2 +1,2 @@
-PyMuPDF>=1.23.0
+PyMuPDF>=1.22.5
 
