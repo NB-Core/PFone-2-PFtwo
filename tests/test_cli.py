@@ -122,7 +122,13 @@ def test_cli_no_metadata(tmp_path):
     ]
     subprocess.run(cmd, check=True, capture_output=True)
 
-    pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
+    images = list(out.glob("*.png")) + list(out.glob("*.jpg"))
+    assert len(images) == 1
+    assert images[0].name.startswith("p1_img1")
+
+    pack_dir = out / "packs"
+    pack = json.loads((pack_dir / "images.json").read_text(encoding="utf-8"))
+    assert list(pack_dir.iterdir()) == [pack_dir / "images.json"]
     entry = pack[0]
     assert entry["name"].startswith("p1_img1")
     assert "folder" not in entry
@@ -151,5 +157,6 @@ def test_cli_note(tmp_path):
 def test_invalid_pages_range():
     """An invalid page range causes the CLI to exit with an error."""
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         pdf_parser.main(["dummy.pdf", "out", "--pages", "invalid"])
+    assert exc.value.code != 0
