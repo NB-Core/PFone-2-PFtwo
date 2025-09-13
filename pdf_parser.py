@@ -1,6 +1,7 @@
 """Utilities for extracting PDF data and building Foundry VTT scenes."""
 
 import json
+import re
 from pathlib import Path
 
 try:
@@ -9,12 +10,58 @@ except ImportError:  # pragma: no cover
     fitz = None  # type: ignore
 
 
-def extract_images(pdf_path, out_dir):
+def _slugify(text):
+    """Return *text* as a lowercase filename fragment."""
+
+    slug = re.sub(r"[^0-9a-zA-Z]+", "_", text).strip("_").lower()
+    return slug or "image"
+
+
+def _find_nearby_text(rect, blocks, max_dist=20):
+    """Return text from *blocks* closest to *rect* within *max_dist*."""
+
+    x0, y0, x1, y1 = rect
+    best = None
+    distance = max_dist
+    for bx0, by0, bx1, by1, text, *_ in blocks:
+        if bx1 < x0 or bx0 > x1:
+            continue
+        if by1 <= y0 and y0 - by1 < distance:
+            best = text
+            distance = y0 - by1
+        elif by0 >= y1 and by0 - y1 < distance:
+            best = text
+            distance = by0 - y1
+    return best.strip() if best else None
+
+
+def _page_hierarchy(doc):
+    """Map page numbers to a list of bookmarks representing their hierarchy."""
+
+    hierarchy = {}
+    toc = doc.get_toc(simple=False)
+    index = 0
+    stack: list[str] = []
+    for page_num in range(1, doc.page_count + 1):
+        while index < len(toc) and toc[index][2] == page_num:
+            level, title, _ = toc[index][:3]
+            stack = stack[: level - 1]
+            stack.append(title)
+            index += 1
+        hierarchy[page_num] = list(stack)
+    return hierarchy
+
+
+def extract_images(pdf_path, out_dir, use_metadata=True):
     """Extract images from a PDF and save them to *out_dir*.
 
-    Returns a list of dictionaries describing each extracted image with
-    keys: name, path, width, height, page.
+    Returns a list of dictionaries describing each extracted image with keys:
+    ``name``, ``path``, ``width``, ``height``, ``page`` and ``folders``.
+    When ``use_metadata`` is ``True`` image names attempt to use metadata or
+    nearby text and page bookmarks supply folder hierarchy. Otherwise, names
+    fall back to ``p{page}_img{index}`` and ``folders`` is empty.
     """
+
     pdf_path = Path(pdf_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -23,22 +70,48 @@ def extract_images(pdf_path, out_dir):
         raise ImportError("PyMuPDF is required to extract images")
 
     doc = fitz.open(pdf_path)
+    hierarchy = _page_hierarchy(doc) if use_metadata else {}
     images = []
+    used_names: set[str] = set()
+
     for page_index, page in enumerate(doc, start=1):
+        text_blocks = page.get_text("blocks") if use_metadata else []
         for img_index, img in enumerate(page.get_images(full=True), start=1):
             xref = img[0]
             pix = fitz.Pixmap(doc, xref)
             ext = "png" if pix.alpha else "jpg"
-            name = f"p{page_index}_img{img_index}.{ext}"
+
+            label = None
+            if use_metadata and len(img) > 7 and img[7]:
+                label = img[7]
+            if use_metadata and not label:
+                rect = page.get_image_bbox(xref)
+                label = _find_nearby_text(rect, text_blocks)
+
+            if not label:
+                label = f"p{page_index}_img{img_index}"
+
+            base = _slugify(label)
+            candidate = base
+            counter = 1
+            while candidate in used_names:
+                candidate = f"{base}_{counter}"
+                counter += 1
+            used_names.add(candidate)
+
+            name = f"{candidate}.{ext}"
             file_path = out_dir / name
             pix.save(file_path)
-            images.append({
-                "name": name,
-                "path": str(file_path),
-                "width": pix.width,
-                "height": pix.height,
-                "page": page_index,
-            })
+            images.append(
+                {
+                    "name": name,
+                    "path": str(file_path),
+                    "width": pix.width,
+                    "height": pix.height,
+                    "page": page_index,
+                    "folders": hierarchy.get(page_index, []) if use_metadata else [],
+                }
+            )
     return images
 
 
@@ -58,14 +131,17 @@ def build_foundry_scenes(images, grid_size=100):
     """
     scenes = []
     for img in images:
-        scenes.append({
+        scene = {
             "name": img["name"],
             "img": img["path"],
             "width": img["width"],
             "height": img["height"],
             "grid": grid_size,
             "gridType": 1,
-        })
+        }
+        if img.get("folders"):
+            scene["folder"] = "/".join(img["folders"])
+        scenes.append(scene)
     return scenes
 
 
@@ -78,9 +154,16 @@ if __name__ == "__main__":
     parser.add_argument("pdf", help="Path to the source PDF file")
     parser.add_argument("out", help="Directory to store extracted images and JSON")
     parser.add_argument("--grid", type=int, default=100, help="Grid size for scenes")
+    parser.add_argument(
+        "--no-metadata",
+        action="store_true",
+        help="Use fallback names and ignore bookmarks for hierarchy",
+    )
     args = parser.parse_args()
 
-    extracted_images = extract_images(args.pdf, args.out)
+    extracted_images = extract_images(
+        args.pdf, args.out, use_metadata=not args.no_metadata
+    )
     foundry_scenes = build_foundry_scenes(extracted_images, grid_size=args.grid)
 
     output_dir = Path(args.out)
