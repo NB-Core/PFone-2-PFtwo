@@ -13,14 +13,14 @@ sys.path.append(str(Path(__file__).resolve().parent))
 from utils import generate_pdf  # pylint: disable=wrong-import-position
 
 from pdf_parser import (  # pylint: disable=wrong-import-position
-    build_foundry_scenes,
+    build_compendium_entries,
     extract_images,
     extract_text,
 )
 
 
-def test_build_foundry_scenes():
-    """Verify scenes include image metadata, tags and notes."""
+def test_build_compendium_entries():
+    """Verify entries include image references, tags and notes."""
     images = [
         {
             "name": "map.png",
@@ -31,18 +31,12 @@ def test_build_foundry_scenes():
             "folders": ["Dungeon"],
         }
     ]
-    scenes = build_foundry_scenes(
-        images, grid_size=75, tags_from_text=True, note="Check traps"
-    )
-    scene = scenes[0]
-    assert scene["name"] == "map.png"
-    assert scene["img"] == "maps/map.png"
-    assert scene["width"] == 100
-    assert scene["height"] == 200
-    assert scene["grid"] == 75
-    assert scene["gridType"] == 1
-    assert scene["tags"] == ["dungeon", "map"]
-    assert scene["notes"] == "Check traps"
+    entries = build_compendium_entries(images, tags_from_text=True, note="Check traps")
+    entry = entries[0]
+    assert entry["name"] == "map.png"
+    assert entry["pages"][0]["src"] == "maps/map.png"
+    assert entry["tags"] == ["dungeon", "map"]
+    assert entry["notes"] == "Check traps"
 
 
 def test_extract_images(tmp_path):
@@ -91,8 +85,8 @@ def test_metadata_tagging(tmp_path):
     pdf = generate_pdf(tmp_path / "tags.pdf")
     out = tmp_path / "out"
     images = extract_images(pdf, out, include_text=True)
-    scenes = build_foundry_scenes(images, tags_from_text=True)
-    tags = scenes[0]["tags"]
+    entries = build_compendium_entries(images, tags_from_text=True)
+    tags = entries[0]["tags"]
     assert "section 1" in tags
     assert "label" in tags
 

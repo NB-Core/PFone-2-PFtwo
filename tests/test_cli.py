@@ -14,7 +14,7 @@ pytest.importorskip("fitz")
 
 
 def test_cli_integration(tmp_path):
-    """Running the CLI extracts images and writes scenes.json."""
+    """Running the CLI extracts images and writes module & compendium files."""
 
     pdf = generate_pdf(tmp_path / "cli.pdf")
     out = tmp_path / "out"
@@ -32,6 +32,9 @@ def test_cli_integration(tmp_path):
     images = list(out.glob("*.png")) + list(out.glob("*.jpg"))
     assert len(images) == 1
 
-    scenes = json.loads((out / "scenes.json").read_text(encoding="utf-8"))
-    assert len(scenes["scenes"]) == 1
-    assert "tags" in scenes["scenes"][0]
+    module = json.loads((out / "module.json").read_text(encoding="utf-8"))
+    assert module["title"] == "cli"
+
+    pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
+    assert len(pack) == 1
+    assert "tags" in pack[0]
