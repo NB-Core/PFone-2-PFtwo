@@ -1,5 +1,6 @@
 """Utilities for extracting PDF data and building Foundry VTT scenes."""
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -197,7 +198,6 @@ def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None)
 
 def main(argv: List[str] | None = None) -> None:
     """Command-line interface for :mod:`pdf_parser`."""
-    import argparse
     parser = argparse.ArgumentParser(
         description="Extract images and text from a PDF and prepare Foundry VTT scenes.",
     )
