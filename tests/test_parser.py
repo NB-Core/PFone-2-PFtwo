@@ -2,28 +2,21 @@
 
 from pathlib import Path
 import sys
-import base64
 
-try:
-    import pytest  # type: ignore
-except ImportError:  # pragma: no cover
-    pytest = None  # type: ignore[assignment]
+import pytest  # type: ignore  # pylint: disable=import-error
 
-try:
-    import fitz  # type: ignore  # pylint: disable=import-error
-except ImportError:  # pragma: no cover
-    fitz = None  # type: ignore
+pytest.importorskip("fitz")
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-if pytest is not None:  # pragma: no branch
-    pytest.importorskip("fitz")
+sys.path.append(str(Path(__file__).resolve().parent))
 
 from pdf_parser import (  # pylint: disable=wrong-import-position
     build_foundry_scenes,
     extract_images,
     extract_text,
 )
+
+from utils import generate_pdf  # pylint: disable=wrong-import-position
 
 
 def test_build_foundry_scenes():
@@ -61,7 +54,7 @@ def test_extract_images(tmp_path):
 
 def test_extract_images_with_text(tmp_path):
     """Text of each page is captured when requested."""
-    pdf = _generate_pdf(tmp_path / "text.pdf")
+    pdf = generate_pdf(tmp_path / "text.pdf")
     out = tmp_path / "out"
     images = extract_images(pdf, out, include_text=True)
     assert "text" in images[0]
@@ -76,30 +69,10 @@ def test_extract_text():
     assert "Hello World" in texts[0]
 
 
-def _generate_pdf(path):
-    """Create a simple PDF with images, captions and bookmarks."""
-
-    doc = fitz.open()
-    img_bytes = base64.b64decode(
-        b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PsLK"
-        b"FQAAAABJRU5ErkJggg==",
-    )
-    toc = []
-    for idx in range(2):
-        page = doc.new_page()
-        rect = fitz.Rect(20, 20, 120, 120)
-        page.insert_image(rect, stream=img_bytes)
-        page.insert_text(fitz.Point(20, 130), f"Label {idx + 1}")
-        toc.append([1, f"Section {idx + 1}", idx + 1])
-    doc.set_toc(toc)
-    doc.save(path)
-    return path
-
-
 def test_labels_and_hierarchy(tmp_path):
     """Images derive names from captions and folders from bookmarks."""
 
-    pdf = _generate_pdf(tmp_path / "labeled.pdf")
+    pdf = generate_pdf(tmp_path / "labeled.pdf")
     out = tmp_path / "out"
     images = extract_images(pdf, out)
     assert images[0]["name"].startswith("label_1")
@@ -115,7 +88,7 @@ def test_labels_and_hierarchy(tmp_path):
 def test_metadata_tagging(tmp_path):
     """Tags derive from folders and page text when requested."""
 
-    pdf = _generate_pdf(tmp_path / "tags.pdf")
+    pdf = generate_pdf(tmp_path / "tags.pdf")
     out = tmp_path / "out"
     images = extract_images(pdf, out, include_text=True)
     scenes = build_foundry_scenes(images, tags_from_text=True)
@@ -127,8 +100,9 @@ def test_metadata_tagging(tmp_path):
 def test_extract_images_page_range(tmp_path):
     """Only pages within the provided range are processed."""
 
-    pdf = _generate_pdf(tmp_path / "range.pdf")
+    pdf = generate_pdf(tmp_path / "range.pdf")
     out = tmp_path / "out"
     images = extract_images(pdf, out, page_range=(2, 2))
     assert len(images) == 1
     assert images[0]["page"] == 2
+

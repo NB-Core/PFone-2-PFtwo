@@ -141,7 +141,7 @@ def extract_images(
     }
 
     for page_index, page in enumerate(doc, start=1):
-        if page_range and not (page_range[0] <= page_index <= page_range[1]):
+        if page_range and not page_range[0] <= page_index <= page_range[1]:
             continue
         page_text = page.get_text("text") if include_text else None
         _process_page(
@@ -204,7 +204,9 @@ def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None)
     return scenes
 
 
-if __name__ == "__main__":
+def main():
+    """Run the CLI interface."""
+
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -230,11 +232,11 @@ if __name__ == "__main__":
     parser.add_argument("--note", help="Attach a note to every scene")
     args = parser.parse_args()
 
-    page_range = None
+    parsed_range = None
     if args.pages:
         try:
             start_str, end_str = args.pages.split("-", 1)
-            page_range = (int(start_str), int(end_str))
+            parsed_range = (int(start_str), int(end_str))
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
 
@@ -243,7 +245,7 @@ if __name__ == "__main__":
         args.out,
         use_metadata=not args.no_metadata,
         include_text=args.tags_from_text,
-        page_range=page_range,
+        page_range=parsed_range,
     )
     foundry_scenes = build_foundry_scenes(
         extracted_images,
@@ -260,3 +262,7 @@ if __name__ == "__main__":
     print(
         f"Extracted {len(extracted_images)} images. Scene definitions saved to {json_path}"
     )
+
+
+if __name__ == "__main__":
+    main()
