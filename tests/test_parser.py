@@ -87,4 +87,3 @@ def test_labels_and_hierarchy(tmp_path):
     images_nometa = extract_images(pdf, out2, use_metadata=False)
     assert images_nometa[0]["name"].startswith("p1_img1")
     assert images_nometa[0]["folders"] == []
-

@@ -52,9 +52,10 @@ def _page_hierarchy(doc):
     return hierarchy
 
 
-def _image_label(page, img, page_index, img_index, text_blocks, use_metadata):
+def _image_label(page, img, idx, text_blocks, use_metadata):
     """Return a label for ``img`` on ``page``."""
 
+    page_index, img_index = idx
     label = None
     if use_metadata and len(img) > 7 and img[7]:
         label = img[7]
@@ -81,22 +82,23 @@ def _unique_name(label, used_names):
     return candidate
 
 
-def _process_page(page, page_index, out_dir, images, used_names, folders, use_metadata):
+def _process_page(page, page_index, folders, ctx):
     """Extract images from a single page."""
 
+    use_metadata = ctx["use_metadata"]
     text_blocks = page.get_text("blocks") if use_metadata else []
     for img_index, img in enumerate(page.get_images(full=True), start=1):
         pix = fitz.Pixmap(page.parent, img[0])
         label = _image_label(
-            page, img, page_index, img_index, text_blocks, use_metadata
+            page, img, (page_index, img_index), text_blocks, use_metadata
         )
         name = (
-            f"{_unique_name(label, used_names)}."
+            f"{_unique_name(label, ctx['used_names'])}."
             f"{'png' if pix.alpha else 'jpg'}"
         )
-        path = out_dir / name
+        path = ctx["out_dir"] / name
         pix.save(path)
-        images.append(
+        ctx["images"].append(
             {
                 "name": name,
                 "path": str(path),
@@ -128,18 +130,15 @@ def extract_images(pdf_path, out_dir, use_metadata=True):
     doc = fitz.open(pdf_path)
     hierarchy = _page_hierarchy(doc) if use_metadata else {}
     images = []
-    used_names: set[str] = set()
+    ctx = {
+        "out_dir": out_dir,
+        "images": images,
+        "used_names": set(),
+        "use_metadata": use_metadata,
+    }
 
     for page_index, page in enumerate(doc, start=1):
-        _process_page(
-            page,
-            page_index,
-            out_dir,
-            images,
-            used_names,
-            hierarchy.get(page_index, []),
-            use_metadata,
-        )
+        _process_page(page, page_index, hierarchy.get(page_index, []), ctx)
     return images
 
 
