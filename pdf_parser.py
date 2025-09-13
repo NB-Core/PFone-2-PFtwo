@@ -83,36 +83,41 @@ def _unique_name(label, used_names):
 def _process_page(page, page_index, folders, ctx, page_text=None):
     """Extract images from a single page."""
 
-    use_metadata = ctx["use_metadata"]
     for img_index, img in enumerate(page.get_images(full=True), start=1):
-        label = _image_label(page, img, (page_index, img_index), use_metadata)
+        label = _image_label(page, img, (page_index, img_index), ctx["use_metadata"])
         xref = img[0]
         if xref in ctx["seen_xrefs"]:
             ctx["labels"].setdefault(label, ctx["seen_xrefs"][xref]["name"])
             continue
 
         pix = fitz.Pixmap(page.parent, xref)
-        checksum = hashlib.md5(pix.tobytes()).hexdigest()
-        if checksum in ctx["seen_checksums"]:
-            ctx["seen_xrefs"][xref] = ctx["seen_checksums"][checksum]
-            ctx["labels"].setdefault(label, ctx["seen_checksums"][checksum]["name"])
-            continue
+        try:
+            checksum = hashlib.md5(pix.tobytes()).hexdigest()
+            if checksum in ctx["seen_checksums"]:
+                ctx["seen_xrefs"][xref] = ctx["seen_checksums"][checksum]
+                ctx["labels"].setdefault(
+                    label, ctx["seen_checksums"][checksum]["name"]
+                )
+                continue
 
-        name = (
-            f"{_unique_name(label, ctx['used_names'])}."
-            f"{'png' if pix.alpha else 'jpg'}"
-        )
-        pix.save(ctx["out_dir"] / name)
-        img_data = {
-            "name": name,
-            "path": str(ctx["out_dir"] / name),
-            "width": pix.width,
-            "height": pix.height,
-            "page": page_index,
-            "folders": folders if use_metadata else [],
-        }
-        if ctx.get("include_text") and page_text is not None:
-            img_data["text"] = page_text
+            name = (
+                f"{_unique_name(label, ctx['used_names'])}."
+                f"{'png' if pix.alpha else 'jpg'}"
+            )
+            pix.save(ctx["out_dir"] / name)
+            img_data = {
+                "name": name,
+                "path": str(ctx["out_dir"] / name),
+                "width": pix.width,
+                "height": pix.height,
+                "page": page_index,
+                "folders": folders if ctx["use_metadata"] else [],
+            }
+            if ctx.get("include_text") and page_text is not None:
+                img_data["text"] = page_text
+        finally:
+            getattr(pix, "close", lambda: None)()
+
         ctx["images"].append(img_data)
         ctx["seen_xrefs"][xref] = img_data
         ctx["seen_checksums"][checksum] = img_data
@@ -148,31 +153,31 @@ def extract_images(
     if fitz is None:  # pragma: no cover - requires PyMuPDF
         raise ImportError("PyMuPDF is required to extract images")
 
-    doc = fitz.open(pdf_path)
-    hierarchy = _page_hierarchy(doc) if use_metadata else {}
-    images: List[dict] = []
-    ctx = {
-        "out_dir": out_dir,
-        "images": images,
-        "used_names": set(),
-        "use_metadata": use_metadata,
-        "include_text": include_text,
-        "seen_xrefs": {},
-        "seen_checksums": {},
-        "labels": {},
-    }
+    with fitz.open(pdf_path) as doc:
+        hierarchy = _page_hierarchy(doc) if use_metadata else {}
+        images: List[dict] = []
+        ctx = {
+            "out_dir": out_dir,
+            "images": images,
+            "used_names": set(),
+            "use_metadata": use_metadata,
+            "include_text": include_text,
+            "seen_xrefs": {},
+            "seen_checksums": {},
+            "labels": {},
+        }
 
-    for page_index, page in enumerate(doc, start=1):
-        if page_range and not page_range[0] <= page_index <= page_range[1]:
-            continue
-        page_text = page.get_text("text") if include_text else None
-        _process_page(
-            page,
-            page_index,
-            hierarchy.get(page_index, []),
-            ctx,
-            page_text=page_text,
-        )
+        for page_index, page in enumerate(doc, start=1):
+            if page_range and not page_range[0] <= page_index <= page_range[1]:
+                continue
+            page_text = page.get_text("text") if include_text else None
+            _process_page(
+                page,
+                page_index,
+                hierarchy.get(page_index, []),
+                ctx,
+                page_text=page_text,
+            )
     return images, ctx["labels"]
 
 
@@ -181,8 +186,8 @@ def extract_text(pdf_path):
     if fitz is None:  # pragma: no cover - requires PyMuPDF
         raise ImportError("PyMuPDF is required to extract text")
 
-    doc = fitz.open(pdf_path)
-    return [page.get_text("text") for page in doc]
+    with fitz.open(pdf_path) as doc:
+        return [page.get_text("text") for page in doc]
 
 
 def _tokens(text):
