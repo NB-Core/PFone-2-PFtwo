@@ -70,13 +70,25 @@ def test_labels_and_hierarchy(tmp_path):
     out = tmp_path / "out"
     images = extract_images(pdf, out)
     assert images[0]["name"].startswith("label_1")
-    assert images[0]["folders"] == ["Section 1"]
+    assert images[0]["folders"] == ["Section 1", "Subsection 1.1"]
     assert images[1]["folders"] == ["Section 2"]
 
     out2 = tmp_path / "out2"
     images_nometa = extract_images(pdf, out2, use_metadata=False)
     assert images_nometa[0]["name"].startswith("p1_img1")
     assert images_nometa[0]["folders"] == []
+
+
+def test_compendium_folder_labels(tmp_path):
+    """Compendium entries include folders and metadata-based names."""
+
+    pdf = generate_pdf(tmp_path / "compendium.pdf")
+    out = tmp_path / "out"
+    images = extract_images(pdf, out)
+    entries = build_compendium_entries(images)
+    assert entries[0]["name"].startswith("label_1")
+    assert entries[0]["folder"] == "Section 1/Subsection 1.1"
+    assert entries[1]["folder"] == "Section 2"
 
 
 def test_metadata_tagging(tmp_path):
