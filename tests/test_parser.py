@@ -3,11 +3,15 @@
 from pathlib import Path
 import sys
 
-import pytest
+try:
+    import pytest  # type: ignore
+except ImportError:  # pragma: no cover
+    pytest = None  # type: ignore[assignment]
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-pytest.importorskip("fitz")
+if pytest is not None:  # pragma: no branch
+    pytest.importorskip("fitz")
 
 from pdf_parser import (  # pylint: disable=wrong-import-position
     build_foundry_scenes,
