@@ -1,6 +1,12 @@
+"""Utilities for extracting PDF data and building Foundry VTT scenes."""
+
 import json
 from pathlib import Path
-import fitz  # PyMuPDF
+
+try:
+    import fitz  # PyMuPDF
+except ImportError:  # pragma: no cover
+    fitz = None  # type: ignore
 
 
 def extract_images(pdf_path, out_dir):
@@ -12,6 +18,9 @@ def extract_images(pdf_path, out_dir):
     pdf_path = Path(pdf_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if fitz is None:  # pragma: no cover - requires PyMuPDF
+        raise ImportError("PyMuPDF is required to extract images")
 
     doc = fitz.open(pdf_path)
     images = []
@@ -35,6 +44,9 @@ def extract_images(pdf_path, out_dir):
 
 def extract_text(pdf_path):
     """Return a list with the text of each page."""
+    if fitz is None:  # pragma: no cover - requires PyMuPDF
+        raise ImportError("PyMuPDF is required to extract text")
+
     doc = fitz.open(pdf_path)
     return [page.get_text("text") for page in doc]
 
@@ -60,18 +72,22 @@ def build_foundry_scenes(images, grid_size=100):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Extract images and text from a PDF and prepare Foundry VTT scenes.")
+    parser = argparse.ArgumentParser(
+        description="Extract images and text from a PDF and prepare Foundry VTT scenes."
+    )
     parser.add_argument("pdf", help="Path to the source PDF file")
     parser.add_argument("out", help="Directory to store extracted images and JSON")
     parser.add_argument("--grid", type=int, default=100, help="Grid size for scenes")
     args = parser.parse_args()
 
-    images = extract_images(args.pdf, args.out)
-    scenes = build_foundry_scenes(images, grid_size=args.grid)
+    extracted_images = extract_images(args.pdf, args.out)
+    foundry_scenes = build_foundry_scenes(extracted_images, grid_size=args.grid)
 
-    out_dir = Path(args.out)
-    json_path = out_dir / "scenes.json"
-    with json_path.open("w", encoding="utf-8") as f:
-        json.dump({"scenes": scenes}, f, indent=2)
+    output_dir = Path(args.out)
+    json_path = output_dir / "scenes.json"
+    with json_path.open("w", encoding="utf-8") as file:
+        json.dump({"scenes": foundry_scenes}, file, indent=2)
 
-    print(f"Extracted {len(images)} images. Scene definitions saved to {json_path}")
+    print(
+        f"Extracted {len(extracted_images)} images. Scene definitions saved to {json_path}"
+    )
