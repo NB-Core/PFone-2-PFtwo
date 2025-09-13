@@ -35,4 +35,3 @@ def generate_pdf(path):
     doc.set_toc(toc)
     doc.save(path)
     return path
-

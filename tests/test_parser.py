@@ -10,13 +10,13 @@ pytest.importorskip("fitz")
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 sys.path.append(str(Path(__file__).resolve().parent))
 
+from utils import generate_pdf  # pylint: disable=wrong-import-position
+
 from pdf_parser import (  # pylint: disable=wrong-import-position
     build_foundry_scenes,
     extract_images,
     extract_text,
 )
-
-from utils import generate_pdf  # pylint: disable=wrong-import-position
 
 
 def test_build_foundry_scenes():
@@ -105,4 +105,3 @@ def test_extract_images_page_range(tmp_path):
     images = extract_images(pdf, out, page_range=(2, 2))
     assert len(images) == 1
     assert images[0]["page"] == 2
-

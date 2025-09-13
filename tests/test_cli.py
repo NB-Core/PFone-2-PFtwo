@@ -35,4 +35,3 @@ def test_cli_integration(tmp_path):
     scenes = json.loads((out / "scenes.json").read_text(encoding="utf-8"))
     assert len(scenes["scenes"]) == 1
     assert "tags" in scenes["scenes"][0]
-
