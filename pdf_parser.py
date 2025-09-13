@@ -52,6 +52,62 @@ def _page_hierarchy(doc):
     return hierarchy
 
 
+def _image_label(page, img, page_index, img_index, text_blocks, use_metadata):
+    """Return a label for ``img`` on ``page``."""
+
+    label = None
+    if use_metadata and len(img) > 7 and img[7]:
+        label = img[7]
+        if re.fullmatch(r"(?:fzimg\d+|im\d+|image\d+)", label.lower()):
+            label = None
+    if use_metadata and not label:
+        rect = page.get_image_bbox(img[0])
+        label = _find_nearby_text(rect, text_blocks)
+    if not label:
+        label = f"p{page_index}_img{img_index}"
+    return label
+
+
+def _unique_name(label, used_names):
+    """Return a unique slugified name for ``label``."""
+
+    base = _slugify(label)
+    candidate = base
+    counter = 1
+    while candidate in used_names:
+        candidate = f"{base}_{counter}"
+        counter += 1
+    used_names.add(candidate)
+    return candidate
+
+
+def _process_page(page, page_index, out_dir, images, used_names, folders, use_metadata):
+    """Extract images from a single page."""
+
+    text_blocks = page.get_text("blocks") if use_metadata else []
+    for img_index, img in enumerate(page.get_images(full=True), start=1):
+        pix = fitz.Pixmap(page.parent, img[0])
+        label = _image_label(
+            page, img, page_index, img_index, text_blocks, use_metadata
+        )
+        name = (
+            f"{_unique_name(label, used_names)}."
+            f"{'png' if pix.alpha else 'jpg'}"
+        )
+        path = out_dir / name
+        pix.save(path)
+        images.append(
+            {
+                "name": name,
+                "path": str(path),
+                "width": pix.width,
+                "height": pix.height,
+                "page": page_index,
+                "folders": folders if use_metadata else [],
+            }
+        )
+
+
 def extract_images(pdf_path, out_dir, use_metadata=True):
     """Extract images from a PDF and save them to *out_dir*.
 
@@ -75,45 +131,15 @@ def extract_images(pdf_path, out_dir, use_metadata=True):
     used_names: set[str] = set()
 
     for page_index, page in enumerate(doc, start=1):
-        text_blocks = page.get_text("blocks") if use_metadata else []
-        for img_index, img in enumerate(page.get_images(full=True), start=1):
-            xref = img[0]
-            pix = fitz.Pixmap(doc, xref)
-            ext = "png" if pix.alpha else "jpg"
-
-            label = None
-            if use_metadata and len(img) > 7 and img[7]:
-                label = img[7]
-                if re.fullmatch(r"(?:fzimg\d+|im\d+|image\d+)", label.lower()):
-                    label = None
-            if use_metadata and not label:
-                rect = page.get_image_bbox(xref)
-                label = _find_nearby_text(rect, text_blocks)
-
-            if not label:
-                label = f"p{page_index}_img{img_index}"
-
-            base = _slugify(label)
-            candidate = base
-            counter = 1
-            while candidate in used_names:
-                candidate = f"{base}_{counter}"
-                counter += 1
-            used_names.add(candidate)
-
-            name = f"{candidate}.{ext}"
-            file_path = out_dir / name
-            pix.save(file_path)
-            images.append(
-                {
-                    "name": name,
-                    "path": str(file_path),
-                    "width": pix.width,
-                    "height": pix.height,
-                    "page": page_index,
-                    "folders": hierarchy.get(page_index, []) if use_metadata else [],
-                }
-            )
+        _process_page(
+            page,
+            page_index,
+            out_dir,
+            images,
+            used_names,
+            hierarchy.get(page_index, []),
+            use_metadata,
+        )
     return images
 
 

@@ -2,11 +2,17 @@
 
 from pathlib import Path
 import sys
+import base64
 
 try:
     import pytest  # type: ignore
 except ImportError:  # pragma: no cover
     pytest = None  # type: ignore[assignment]
+
+try:
+    import fitz  # type: ignore  # pylint: disable=import-error
+except ImportError:  # pragma: no cover
+    fitz = None  # type: ignore
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -50,12 +56,10 @@ def test_extract_text():
 def _generate_pdf(path):
     """Create a simple PDF with images, captions and bookmarks."""
 
-    import base64
-    import fitz
-
     doc = fitz.open()
     img_bytes = base64.b64decode(
-        b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PsLKFQAAAABJRU5ErkJggg=="
+        b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PsLK"
+        b"FQAAAABJRU5ErkJggg==",
     )
     toc = []
     for idx in range(2):
@@ -83,3 +87,4 @@ def test_labels_and_hierarchy(tmp_path):
     images_nometa = extract_images(pdf, out2, use_metadata=False)
     assert images_nometa[0]["name"].startswith("p1_img1")
     assert images_nometa[0]["folders"] == []
+
