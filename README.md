@@ -22,7 +22,7 @@ Run the parser from anywhere using the `pfpdf` command:
 pfpdf path/to/file.pdf output_dir
 ```
 
-Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` compendium file ready for import into Foundry VTT.
+Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` `JournalEntry` compendium file ready for import into Foundry VTT v13.
 
 The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed. Optional flags provide extra metadata for the generated entries and module manifest:
 
@@ -54,9 +54,7 @@ pytest
 - **Page+index fallback:** When no metadata is available, entries are named `page_<page>_<index>` to guarantee a stable label.
 - **Nested folders:** Bookmark hierarchies create nested folders inside the compendium, preserving the structure of the original PDF.
 
-## Sample Output
-
-`module.json`
+## Example `module.json`
 
 ```json
 {
@@ -75,7 +73,7 @@ pytest
 }
 ```
 
-`packs/images.json`
+## Example `packs/images.json`
 
 ```json
 [
@@ -94,12 +92,11 @@ pytest
 ]
 ```
 
-
 ## Importing into Foundry VTT v13
 
 1. Copy `module.json`, the `packs/` directory, and the extracted image files into Foundry's `Data/modules/<your-module>` folder.
-2. Launch Foundry and enable the module from **Settings → Manage Modules**.
-3. Open the **Compendium Packs** sidebar, locate the **Images** pack, and choose **Import All** or drag entries into your world.
+2. Launch Foundry VTT v13 and enable the module from **Settings → Manage Modules**.
+3. Open the **Compendium Packs** sidebar, locate the **Images** JournalEntry compendium, and choose **Import All** or drag entries into your world.
 4. Imported entries appear in nested folders mirroring the PDF's bookmark structure.
 
 ## Contributing
