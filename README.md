@@ -6,17 +6,23 @@ This repository contains a PDF parser that extracts embedded images and builds a
 
 - Python 3.10 or 3.11
 
+## Installation
+
+Install the project and its dependencies with `pip`:
+
+```bash
+pip install .
+```
+
 ## Usage
 
-1. Set up the Python environment:
-   ```bash
-   ./scripts/setup_codex_env.sh
-   ```
-2. Run the parser:
-   ```bash
-   python pdf_parser.py path/to/file.pdf output_dir
-   ```
-   Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` compendium file ready for import into Foundry VTT.
+Run the parser from anywhere using the `pfpdf` command:
+
+```bash
+pfpdf path/to/file.pdf output_dir
+```
+
+Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` compendium file ready for import into Foundry VTT.
 
 The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed. Optional flags provide extra metadata for the generated scenes:
 
@@ -26,7 +32,7 @@ The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, de
 Example:
 
 ```bash
-python pdf_parser.py file.pdf out --tags-from-text --note "GM only"
+pfpdf file.pdf out --tags-from-text --note "GM only"
 ```
 
 ## Testing

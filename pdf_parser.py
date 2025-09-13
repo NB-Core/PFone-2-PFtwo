@@ -1,5 +1,6 @@
 """Utilities for extracting PDF data and building Foundry VTT scenes."""
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -204,13 +205,11 @@ def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None)
     return scenes
 
 
-def main():
-    """Run the CLI interface."""
-
-    import argparse
+def main(argv: List[str] | None = None) -> None:
+    """Command-line interface for :mod:`pdf_parser`."""
 
     parser = argparse.ArgumentParser(
-        description="Extract images and text from a PDF and prepare Foundry VTT scenes."
+        description="Extract images and text from a PDF and prepare Foundry VTT scenes.",
     )
     parser.add_argument("pdf", help="Path to the source PDF file")
     parser.add_argument("out", help="Directory to store extracted images and JSON")
@@ -230,7 +229,7 @@ def main():
         help="Generate scene tags from page text and bookmarks",
     )
     parser.add_argument("--note", help="Attach a note to every scene")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     parsed_range = None
     if args.pages:
@@ -264,5 +263,6 @@ def main():
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+
     main()
