@@ -35,6 +35,15 @@ Example:
 pfpdf file.pdf out --tags-from-text --note "GM only"
 ```
 
+## Testing
+
+Run the linter and test suite before submitting changes:
+
+```bash
+pylint pdf_parser.py
+pytest
+```
+
 ## Labeling and Folder Hierarchy
 
 - **Metadata-based labeling:** Alt text and bookmark titles label each image. Duplicate metadata points to the same JournalEntry so repeated images are not duplicated.
