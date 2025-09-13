@@ -77,3 +77,28 @@ def test_env_overrides(tmp_path):
     flags = pack[0]["flags"]["pfpdf"]
     assert flags["module_id"] == "env_id"
     assert flags["title"] == "Env Title"
+
+
+def test_cli_hierarchy(tmp_path):
+    """CLI populates module and compendium with hierarchy data."""
+
+    pdf = generate_pdf(tmp_path / "hier.pdf")
+    out = tmp_path / "out"
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve().parents[1] / "pdf_parser.py"),
+        str(pdf),
+        str(out),
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    module = json.loads((out / "module.json").read_text(encoding="utf-8"))
+    assert module["name"] == "hier"
+    assert module["title"] == "hier"
+    assert module["packs"][0]["type"] == "JournalEntry"
+
+    pack = json.loads((out / "packs" / "images.json").read_text(encoding="utf-8"))
+    assert len(pack) == 2
+    assert pack[0]["name"].startswith("label_1")
+    assert pack[0]["folder"] == "Section 1/Subsection 1.1"
+    assert pack[1]["folder"] == "Section 2"

@@ -9,7 +9,7 @@ except ImportError:  # pragma: no cover
 
 
 def generate_pdf(path):
-    """Create a simple two-page PDF with images and captions."""
+    """Create a two-page PDF with images, captions and nested bookmarks."""
 
     if fitz is None:  # pragma: no cover - requires PyMuPDF
         raise RuntimeError("PyMuPDF is required to generate sample PDFs")
@@ -25,13 +25,18 @@ def generate_pdf(path):
         b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PsLK"
         b"FQAAAABJRU5ErkJggg=="
     )
-    toc = []
     for idx in range(2):
         page = doc.new_page()
         rect = fitz.Rect(20, 20, 120, 120)
         page.insert_image(rect, stream=img_bytes)
         page.insert_text(fitz.Point(20, 130), f"Label {idx + 1}")
-        toc.append([1, f"Section {idx + 1}", idx + 1])
-    doc.set_toc(toc)
+
+    doc.set_toc(
+        [
+            [1, "Section 1", 1],
+            [2, "Subsection 1.1", 1],
+            [1, "Section 2", 2],
+        ]
+    )
     doc.save(path)
     return path
