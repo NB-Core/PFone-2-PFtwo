@@ -85,32 +85,27 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
 
     use_metadata = ctx["use_metadata"]
     for img_index, img in enumerate(page.get_images(full=True), start=1):
+        label = _image_label(page, img, (page_index, img_index), use_metadata)
         xref = img[0]
         if xref in ctx["seen_xrefs"]:
-            existing = ctx["seen_xrefs"][xref]
-            label = _image_label(page, img, (page_index, img_index), use_metadata)
-            ctx["labels"].setdefault(label, existing["name"])
+            ctx["labels"].setdefault(label, ctx["seen_xrefs"][xref]["name"])
             continue
 
         pix = fitz.Pixmap(page.parent, xref)
         checksum = hashlib.md5(pix.tobytes()).hexdigest()
         if checksum in ctx["seen_checksums"]:
-            existing = ctx["seen_checksums"][checksum]
-            ctx["seen_xrefs"][xref] = existing
-            label = _image_label(page, img, (page_index, img_index), use_metadata)
-            ctx["labels"].setdefault(label, existing["name"])
+            ctx["seen_xrefs"][xref] = ctx["seen_checksums"][checksum]
+            ctx["labels"].setdefault(label, ctx["seen_checksums"][checksum]["name"])
             continue
 
-        label = _image_label(page, img, (page_index, img_index), use_metadata)
         name = (
             f"{_unique_name(label, ctx['used_names'])}."
             f"{'png' if pix.alpha else 'jpg'}"
         )
-        path = ctx["out_dir"] / name
-        pix.save(path)
+        pix.save(ctx["out_dir"] / name)
         img_data = {
             "name": name,
-            "path": str(path),
+            "path": str(ctx["out_dir"] / name),
             "width": pix.width,
             "height": pix.height,
             "page": page_index,
