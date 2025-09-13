@@ -280,23 +280,23 @@ def main(argv: List[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    parsed_range = None
+    page_range = None
     if args.pages:
         try:
-            start_str, end_str = args.pages.split("-", 1)
-            start, end = int(start_str), int(end_str)
+            page_range = tuple(map(int, args.pages.split("-", 1)))
+            if len(page_range) != 2:
+                raise ValueError
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
-        if start > end:
+        if page_range[0] > page_range[1]:
             raise SystemExit("--pages start must be <= end.")
-        parsed_range = (start, end)
 
     extracted_images, _ = extract_images(
         args.pdf,
         args.out,
         use_metadata=not args.no_metadata,
         include_text=args.tags_from_text,
-        page_range=parsed_range,
+        page_range=page_range,
     )
 
     module_id = os.getenv(
