@@ -83,9 +83,8 @@ def _unique_name(label, used_names):
 def _process_page(page, page_index, folders, ctx, page_text=None):
     """Extract images from a single page."""
 
-    use_metadata = ctx["use_metadata"]
     for img_index, img in enumerate(page.get_images(full=True), start=1):
-        label = _image_label(page, img, (page_index, img_index), use_metadata)
+        label = _image_label(page, img, (page_index, img_index), ctx["use_metadata"])
         xref = img[0]
         if xref in ctx["seen_xrefs"]:
             ctx["labels"].setdefault(label, ctx["seen_xrefs"][xref]["name"])
@@ -106,23 +105,19 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
                 f"{'png' if pix.alpha else 'jpg'}"
             )
             pix.save(ctx["out_dir"] / name)
-            width = pix.width
-            height = pix.height
+            img_data = {
+                "name": name,
+                "path": str(ctx["out_dir"] / name),
+                "width": pix.width,
+                "height": pix.height,
+                "page": page_index,
+                "folders": folders if ctx["use_metadata"] else [],
+            }
+            if ctx.get("include_text") and page_text is not None:
+                img_data["text"] = page_text
         finally:
-            close_method = getattr(pix, "close", None)
-            if close_method is not None:
-                close_method()  # pylint: disable=not-callable
+            getattr(pix, "close", lambda: None)()
 
-        img_data = {
-            "name": name,
-            "path": str(ctx["out_dir"] / name),
-            "width": width,
-            "height": height,
-            "page": page_index,
-            "folders": folders if use_metadata else [],
-        }
-        if ctx.get("include_text") and page_text is not None:
-            img_data["text"] = page_text
         ctx["images"].append(img_data)
         ctx["seen_xrefs"][xref] = img_data
         ctx["seen_checksums"][checksum] = img_data
