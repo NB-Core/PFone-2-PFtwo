@@ -5,9 +5,9 @@ builds minimal [Foundry VTT](https://foundryvtt.com/) scene definitions.
 
 ## Usage
 
-1. Install dependencies:
+1. Set up the Python environment:
    ```bash
-   pip install -r requirements.txt
+   ./scripts/setup_codex_env.sh
    ```
 2. Run the parser:
    ```bash
