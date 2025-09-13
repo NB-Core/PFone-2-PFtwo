@@ -18,7 +18,16 @@ This repository contains a PDF parser that extracts embedded images and builds a
    ```
    Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` compendium file ready for import into Foundry VTT.
 
-The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed.
+The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed. Optional flags provide extra metadata for the generated scenes:
+
+- `--tags-from-text` – include page text and bookmarks as tags on each scene.
+- `--note "Some note"` – attach a note to every generated scene.
+
+Example:
+
+```bash
+python pdf_parser.py file.pdf out --tags-from-text --note "GM only"
+```
 
 ## Labeling and Folder Hierarchy
 
@@ -64,6 +73,25 @@ The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, de
     ]
   }
 ]
+```
+
+`scenes.json`
+
+```json
+{
+  "scenes": [
+    {
+      "name": "map.png",
+      "img": "maps/map.png",
+      "width": 100,
+      "height": 200,
+      "grid": 75,
+      "gridType": 1,
+      "tags": ["dungeon", "map"],
+      "notes": "GM only"
+    }
+  ]
+}
 ```
 
 ## Importing into Foundry VTT v13

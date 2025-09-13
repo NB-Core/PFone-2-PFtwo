@@ -27,15 +27,29 @@ from pdf_parser import (  # pylint: disable=wrong-import-position
 
 
 def test_build_foundry_scenes():
-    """Verify scenes include image metadata and grid size."""
-    images = [{"name": "map.png", "path": "maps/map.png", "width": 100, "height": 200}]
-    scenes = build_foundry_scenes(images, grid_size=75)
-    assert scenes[0]["name"] == "map.png"
-    assert scenes[0]["img"] == "maps/map.png"
-    assert scenes[0]["width"] == 100
-    assert scenes[0]["height"] == 200
-    assert scenes[0]["grid"] == 75
-    assert scenes[0]["gridType"] == 1
+    """Verify scenes include image metadata, tags and notes."""
+    images = [
+        {
+            "name": "map.png",
+            "path": "maps/map.png",
+            "width": 100,
+            "height": 200,
+            "text": "Dungeon Map",
+            "folders": ["Dungeon"],
+        }
+    ]
+    scenes = build_foundry_scenes(
+        images, grid_size=75, tags_from_text=True, note="Check traps"
+    )
+    scene = scenes[0]
+    assert scene["name"] == "map.png"
+    assert scene["img"] == "maps/map.png"
+    assert scene["width"] == 100
+    assert scene["height"] == 200
+    assert scene["grid"] == 75
+    assert scene["gridType"] == 1
+    assert scene["tags"] == ["dungeon", "map"]
+    assert scene["notes"] == "Check traps"
 
 
 def test_extract_images(tmp_path):
@@ -43,6 +57,15 @@ def test_extract_images(tmp_path):
     pdf = Path(__file__).parent / "data" / "sample.pdf"
     images = extract_images(pdf, tmp_path)
     assert len(images) == 0
+
+
+def test_extract_images_with_text(tmp_path):
+    """Text of each page is captured when requested."""
+    pdf = _generate_pdf(tmp_path / "text.pdf")
+    out = tmp_path / "out"
+    images = extract_images(pdf, out, include_text=True)
+    assert "text" in images[0]
+    assert "Label 1" in images[0]["text"]
 
 
 def test_extract_text():
