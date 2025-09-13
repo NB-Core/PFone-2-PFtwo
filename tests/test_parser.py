@@ -110,3 +110,25 @@ def test_labels_and_hierarchy(tmp_path):
     images_nometa = extract_images(pdf, out2, use_metadata=False)
     assert images_nometa[0]["name"].startswith("p1_img1")
     assert images_nometa[0]["folders"] == []
+
+
+def test_metadata_tagging(tmp_path):
+    """Tags derive from folders and page text when requested."""
+
+    pdf = _generate_pdf(tmp_path / "tags.pdf")
+    out = tmp_path / "out"
+    images = extract_images(pdf, out, include_text=True)
+    scenes = build_foundry_scenes(images, tags_from_text=True)
+    tags = scenes[0]["tags"]
+    assert "section 1" in tags
+    assert "label" in tags
+
+
+def test_extract_images_page_range(tmp_path):
+    """Only pages within the provided range are processed."""
+
+    pdf = _generate_pdf(tmp_path / "range.pdf")
+    out = tmp_path / "out"
+    images = extract_images(pdf, out, page_range=(2, 2))
+    assert len(images) == 1
+    assert images[0]["page"] == 2

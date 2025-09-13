@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
 
 try:
     import fitz  # PyMuPDF
@@ -103,7 +103,13 @@ def _process_page(page, page_index, folders, ctx, page_text=None):
         ctx["images"].append(img_data)
 
 
-def extract_images(pdf_path, out_dir, use_metadata=True, include_text=False):
+def extract_images(
+    pdf_path,
+    out_dir,
+    use_metadata=True,
+    include_text=False,
+    page_range: Optional[Tuple[int, int]] = None,
+):
     """Extract images from a PDF and save them to *out_dir*.
 
     Returns a list of dictionaries describing each extracted image with keys:
@@ -112,7 +118,8 @@ def extract_images(pdf_path, out_dir, use_metadata=True, include_text=False):
     nearby text and page bookmarks supply folder hierarchy. Otherwise, names
     fall back to ``p{page}_img{index}`` and ``folders`` is empty. When
     ``include_text`` is ``True`` the full text of the source page is captured
-    in a ``text`` field for each image.
+    in a ``text`` field for each image. ``page_range`` may be a tuple of
+    ``(start, end)`` page numbers limiting extraction to that inclusive range.
     """
 
     pdf_path = Path(pdf_path)
@@ -134,6 +141,8 @@ def extract_images(pdf_path, out_dir, use_metadata=True, include_text=False):
     }
 
     for page_index, page in enumerate(doc, start=1):
+        if page_range and not (page_range[0] <= page_index <= page_range[1]):
+            continue
         page_text = page.get_text("text") if include_text else None
         _process_page(
             page,
@@ -210,6 +219,10 @@ if __name__ == "__main__":
         help="Use fallback names and ignore bookmarks for hierarchy",
     )
     parser.add_argument(
+        "--pages",
+        help="Page range to extract, e.g. '2-5'",
+    )
+    parser.add_argument(
         "--tags-from-text",
         action="store_true",
         help="Generate scene tags from page text and bookmarks",
@@ -217,11 +230,20 @@ if __name__ == "__main__":
     parser.add_argument("--note", help="Attach a note to every scene")
     args = parser.parse_args()
 
+    page_range = None
+    if args.pages:
+        try:
+            start_str, end_str = args.pages.split("-", 1)
+            page_range = (int(start_str), int(end_str))
+        except ValueError as exc:  # pragma: no cover - args parsing
+            raise SystemExit("Invalid --pages format. Use START-END.") from exc
+
     extracted_images = extract_images(
         args.pdf,
         args.out,
         use_metadata=not args.no_metadata,
         include_text=args.tags_from_text,
+        page_range=page_range,
     )
     foundry_scenes = build_foundry_scenes(
         extracted_images,
