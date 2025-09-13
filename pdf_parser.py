@@ -1,4 +1,4 @@
-"""Utilities for extracting PDF data and building Foundry VTT scenes."""
+"""Utilities for extracting PDF data and building Foundry VTT compendiums."""
 
 import argparse
 import json
@@ -170,27 +170,29 @@ def _tokens(text):
     return re.findall(r"\w+", text.lower())
 
 
-def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None):
-    """Build minimal Foundry VTT scene definitions for *images*.
+def build_compendium_entries(images, tags_from_text=False, note=None):
+    """Build JournalEntry definitions for *images*.
 
     Each entry in *images* should be a dict as returned by ``extract_images``.
     When ``tags_from_text`` is ``True`` folder names and page text are used to
-    populate a ``tags`` list on each scene. ``note`` sets a ``notes`` field on
-    every scene when provided.
+    populate a ``tags`` list on each entry. ``note`` sets a ``notes`` field on
+    every entry when provided.
     """
 
-    scenes = []
+    entries = []
     for img in images:
-        scene = {
+        entry = {
             "name": img["name"],
-            "img": img["path"],
-            "width": img["width"],
-            "height": img["height"],
-            "grid": grid_size,
-            "gridType": 1,
+            "pages": [
+                {
+                    "name": img["name"],
+                    "type": "image",
+                    "src": img["path"],
+                }
+            ],
         }
         if img.get("folders"):
-            scene["folder"] = "/".join(img["folders"])
+            entry["folder"] = "/".join(img["folders"])
         if tags_from_text:
             tags = []
             if img.get("folders"):
@@ -198,22 +200,21 @@ def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None)
             if img.get("text"):
                 tags.extend(_tokens(img["text"]))
             if tags:
-                scene["tags"] = list(dict.fromkeys(tags))
+                entry["tags"] = list(dict.fromkeys(tags))
         if note:
-            scene["notes"] = note
-        scenes.append(scene)
-    return scenes
+            entry["notes"] = note
+        entries.append(entry)
+    return entries
 
 
 def main(argv: List[str] | None = None) -> None:
     """Command-line interface for :mod:`pdf_parser`."""
 
     parser = argparse.ArgumentParser(
-        description="Extract images and text from a PDF and prepare Foundry VTT scenes.",
+        description="Extract images and text from a PDF and prepare a Foundry VTT compendium.",
     )
     parser.add_argument("pdf", help="Path to the source PDF file")
     parser.add_argument("out", help="Directory to store extracted images and JSON")
-    parser.add_argument("--grid", type=int, default=100, help="Grid size for scenes")
     parser.add_argument(
         "--no-metadata",
         action="store_true",
@@ -226,9 +227,9 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument(
         "--tags-from-text",
         action="store_true",
-        help="Generate scene tags from page text and bookmarks",
+        help="Generate entry tags from page text and bookmarks",
     )
-    parser.add_argument("--note", help="Attach a note to every scene")
+    parser.add_argument("--note", help="Attach a note to every entry")
     args = parser.parse_args(argv)
 
     parsed_range = None
@@ -246,20 +247,36 @@ def main(argv: List[str] | None = None) -> None:
         include_text=args.tags_from_text,
         page_range=parsed_range,
     )
-    foundry_scenes = build_foundry_scenes(
+    compendium_entries = build_compendium_entries(
         extracted_images,
-        grid_size=args.grid,
         tags_from_text=args.tags_from_text,
         note=args.note,
     )
 
     output_dir = Path(args.out)
-    json_path = output_dir / "scenes.json"
-    with json_path.open("w", encoding="utf-8") as file:
-        json.dump({"scenes": foundry_scenes}, file, indent=2)
+    packs_dir = output_dir / "packs"
+    packs_dir.mkdir(parents=True, exist_ok=True)
+    pack_path = packs_dir / "images.json"
+    with pack_path.open("w", encoding="utf-8") as file:
+        json.dump(compendium_entries, file, indent=2)
+
+    module_data = {
+        "name": _slugify(Path(args.pdf).stem),
+        "title": Path(args.pdf).stem,
+        "packs": [
+            {
+                "name": "images",
+                "label": "Images",
+                "path": "packs/images.json",
+                "type": "JournalEntry",
+            }
+        ],
+    }
+    with (output_dir / "module.json").open("w", encoding="utf-8") as file:
+        json.dump(module_data, file, indent=2)
 
     print(
-        f"Extracted {len(extracted_images)} images. Scene definitions saved to {json_path}"
+        f"Extracted {len(extracted_images)} images. Compendium saved to {pack_path}"
     )
 
 
