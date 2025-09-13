@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -170,13 +171,20 @@ def _tokens(text):
     return re.findall(r"\w+", text.lower())
 
 
-def build_compendium_entries(images, tags_from_text=False, note=None):
+def build_compendium_entries(
+    images,
+    tags_from_text: bool = False,
+    note: str | None = None,
+    module_id: str | None = None,
+    title: str | None = None,
+):
     """Build JournalEntry definitions for *images*.
 
     Each entry in *images* should be a dict as returned by ``extract_images``.
     When ``tags_from_text`` is ``True`` folder names and page text are used to
     populate a ``tags`` list on each entry. ``note`` sets a ``notes`` field on
-    every entry when provided.
+    every entry when provided. ``module_id`` and ``title`` are stored as flags
+    when supplied.
     """
 
     entries = []
@@ -203,6 +211,13 @@ def build_compendium_entries(images, tags_from_text=False, note=None):
                 entry["tags"] = list(dict.fromkeys(tags))
         if note:
             entry["notes"] = note
+        if module_id or title:
+            meta: dict[str, str] = {}
+            if module_id:
+                meta["module_id"] = module_id
+            if title:
+                meta["title"] = title
+            entry["flags"] = {"pfpdf": meta}
         entries.append(entry)
     return entries
 
@@ -230,13 +245,20 @@ def main(argv: List[str] | None = None) -> None:
         help="Generate entry tags from page text and bookmarks",
     )
     parser.add_argument("--note", help="Attach a note to every entry")
+    parser.add_argument(
+        "--module-id",
+        help="Module identifier for the manifest (defaults to PDF filename)",
+    )
+    parser.add_argument(
+        "--title",
+        help="Module title for the manifest (defaults to PDF filename)",
+    )
     args = parser.parse_args(argv)
 
     parsed_range = None
     if args.pages:
         try:
-            start_str, end_str = args.pages.split("-", 1)
-            parsed_range = (int(start_str), int(end_str))
+            parsed_range = tuple(map(int, args.pages.split("-", 1)))
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
 
@@ -247,22 +269,30 @@ def main(argv: List[str] | None = None) -> None:
         include_text=args.tags_from_text,
         page_range=parsed_range,
     )
+
+    module_id = os.getenv(
+        "PFPDF_MODULE_ID", args.module_id or _slugify(Path(args.pdf).stem)
+    )
+    title = os.getenv("PFPDF_TITLE", args.title or Path(args.pdf).stem)
+
     compendium_entries = build_compendium_entries(
         extracted_images,
         tags_from_text=args.tags_from_text,
         note=args.note,
+        module_id=module_id,
+        title=title,
     )
 
     output_dir = Path(args.out)
-    packs_dir = output_dir / "packs"
-    packs_dir.mkdir(parents=True, exist_ok=True)
-    pack_path = packs_dir / "images.json"
-    with pack_path.open("w", encoding="utf-8") as file:
-        json.dump(compendium_entries, file, indent=2)
+    pack_path = output_dir / "packs" / "images.json"
+    pack_path.parent.mkdir(parents=True, exist_ok=True)
+    pack_path.write_text(
+        json.dumps(compendium_entries, indent=2), encoding="utf-8"
+    )
 
     module_data = {
-        "name": _slugify(Path(args.pdf).stem),
-        "title": Path(args.pdf).stem,
+        "name": module_id,
+        "title": title,
         "packs": [
             {
                 "name": "images",
@@ -272,8 +302,9 @@ def main(argv: List[str] | None = None) -> None:
             }
         ],
     }
-    with (output_dir / "module.json").open("w", encoding="utf-8") as file:
-        json.dump(module_data, file, indent=2)
+    (output_dir / "module.json").write_text(
+        json.dumps(module_data, indent=2), encoding="utf-8"
+    )
 
     print(
         f"Extracted {len(extracted_images)} images. Compendium saved to {pack_path}"

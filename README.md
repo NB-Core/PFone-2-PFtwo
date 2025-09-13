@@ -24,15 +24,19 @@ pfpdf path/to/file.pdf output_dir
 
 Images are written to `output_dir`, and the directory will contain a `module.json` manifest and a `packs/images.json` compendium file ready for import into Foundry VTT.
 
-The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed. Optional flags provide extra metadata for the generated entries:
+The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, deduplicates them using PDF metadata, and can be extended with additional processing as needed. Optional flags provide extra metadata for the generated entries and module manifest:
 
+- `--module-id my-module` – set the module identifier (the manifest `name`).
+- `--title "My Title"` – set the module manifest title.
 - `--tags-from-text` – include page text and bookmarks as tags on each entry.
 - `--note "Some note"` – attach a note to every generated entry.
+
+Environment variables `PFPDF_MODULE_ID` and `PFPDF_TITLE` override the corresponding command-line options when set.
 
 Example:
 
 ```bash
-pfpdf file.pdf out --tags-from-text --note "GM only"
+pfpdf file.pdf out --module-id my-module --title "My Module" --tags-from-text --note "GM only"
 ```
 
 ## Testing
