@@ -258,8 +258,7 @@ def main(argv: List[str] | None = None) -> None:
     parsed_range = None
     if args.pages:
         try:
-            start_str, end_str = args.pages.split("-", 1)
-            parsed_range = (int(start_str), int(end_str))
+            parsed_range = tuple(map(int, args.pages.split("-", 1)))
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
 
@@ -285,11 +284,11 @@ def main(argv: List[str] | None = None) -> None:
     )
 
     output_dir = Path(args.out)
-    packs_dir = output_dir / "packs"
-    packs_dir.mkdir(parents=True, exist_ok=True)
-    pack_path = packs_dir / "images.json"
-    with pack_path.open("w", encoding="utf-8") as file:
-        json.dump(compendium_entries, file, indent=2)
+    pack_path = output_dir / "packs" / "images.json"
+    pack_path.parent.mkdir(parents=True, exist_ok=True)
+    pack_path.write_text(
+        json.dumps(compendium_entries, indent=2), encoding="utf-8"
+    )
 
     module_data = {
         "name": module_id,
@@ -303,8 +302,9 @@ def main(argv: List[str] | None = None) -> None:
             }
         ],
     }
-    with (output_dir / "module.json").open("w", encoding="utf-8") as file:
-        json.dump(module_data, file, indent=2)
+    (output_dir / "module.json").write_text(
+        json.dumps(module_data, indent=2), encoding="utf-8"
+    )
 
     print(
         f"Extracted {len(extracted_images)} images. Compendium saved to {pack_path}"
