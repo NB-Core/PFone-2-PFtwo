@@ -3,6 +3,7 @@
 import json
 import re
 from pathlib import Path
+from typing import List
 
 try:
     import fitz  # PyMuPDF
@@ -41,7 +42,7 @@ def _page_hierarchy(doc):
     hierarchy = {}
     toc = doc.get_toc(simple=False)
     index = 0
-    stack: list[str] = []
+    stack: List[str] = []
     for page_num in range(1, doc.page_count + 1):
         while index < len(toc) and toc[index][2] == page_num:
             level, title, _ = toc[index][:3]
@@ -62,7 +63,7 @@ def _image_label(page, img, idx, text_blocks, use_metadata):
         if re.fullmatch(r"(?:fzimg\d+|im\d+|image\d+)", label.lower()):
             label = None
     if use_metadata and not label:
-        rect = page.get_image_bbox(img[0])
+        rect = page.get_image_bbox(img)
         label = _find_nearby_text(rect, text_blocks)
     if not label:
         label = f"p{page_index}_img{img_index}"
