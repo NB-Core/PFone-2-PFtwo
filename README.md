@@ -28,12 +28,19 @@ The parser uses [PyMuPDF](https://pymupdf.readthedocs.io/) to extract images, de
 
 - `--tags-from-text` – include page text and bookmarks as tags on each scene.
 - `--note "Some note"` – attach a note to every generated scene.
+- `--module-id` – set the module identifier used in `module.json`.
+- `--title` – set a custom module title instead of the PDF filename.
 
 Example:
 
 ```bash
-pfpdf file.pdf out --tags-from-text --note "GM only"
+pfpdf file.pdf out --tags-from-text --note "GM only" --module-id mymod --title "My Module"
 ```
+
+Environment variables can override the corresponding CLI flags when present:
+
+- `PFPDF_MODULE_ID` – overrides `--module-id`.
+- `PFPDF_TITLE` – overrides `--title`.
 
 ## Testing
 

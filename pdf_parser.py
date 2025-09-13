@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import os
 import re
+import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -205,6 +207,67 @@ def build_foundry_scenes(images, grid_size=100, tags_from_text=False, note=None)
     return scenes
 
 
+def build_journal_compendium(images, module_id, _title):
+    """Return JournalEntry compendium data for *images*.
+
+    ``module_id`` and ``_title`` are accepted so metadata can be embedded if
+    desired.  The current implementation uses ``module_id`` to generate stable
+    identifiers for each entry.
+    """
+
+    compendium = []
+    for index, img in enumerate(images):
+        name = Path(img["name"]).stem
+        entry_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{module_id}-{index}").hex
+        entry = {
+            "_id": entry_id,
+            "name": name,
+            "pages": [
+                {
+                    "name": name,
+                    "type": "image",
+                    "image": {"src": Path(img["path"]).name},
+                }
+            ],
+        }
+        if img.get("folders"):
+            entry["folder"] = "/".join(img["folders"])
+        compendium.append(entry)
+    return compendium
+
+
+def write_module_manifest(out_dir, module_id, title):
+    """Write a minimal Foundry module manifest to *out_dir*."""
+
+    manifest = {
+        "name": module_id,
+        "title": title,
+        "version": "1.0.0",
+        "compatibleCoreVersion": "13",
+        "packs": [
+            {
+                "name": "images",
+                "label": "Images",
+                "path": "packs/images.json",
+                "type": "JournalEntry",
+            }
+        ],
+    }
+    out_path = Path(out_dir) / "module.json"
+    with out_path.open("w", encoding="utf-8") as file:
+        json.dump(manifest, file, indent=2)
+
+
+def write_journal_compendium(out_dir, compendium):
+    """Write *compendium* data to *out_dir* under ``packs/images.json``."""
+
+    packs_dir = Path(out_dir) / "packs"
+    packs_dir.mkdir(parents=True, exist_ok=True)
+    out_path = packs_dir / "images.json"
+    with out_path.open("w", encoding="utf-8") as file:
+        json.dump(compendium, file, indent=2)
+
+
 def main(argv: List[str] | None = None) -> None:
     """Command-line interface for :mod:`pdf_parser`."""
 
@@ -219,6 +282,8 @@ def main(argv: List[str] | None = None) -> None:
         action="store_true",
         help="Use fallback names and ignore bookmarks for hierarchy",
     )
+    parser.add_argument("--module-id", help="ID for the generated Foundry module")
+    parser.add_argument("--title", help="Title for the generated Foundry module")
     parser.add_argument(
         "--pages",
         help="Page range to extract, e.g. '2-5'",
@@ -239,6 +304,12 @@ def main(argv: List[str] | None = None) -> None:
         except ValueError as exc:  # pragma: no cover - args parsing
             raise SystemExit("Invalid --pages format. Use START-END.") from exc
 
+    pdf_stem = Path(args.pdf).stem
+    module_id = args.module_id or _slugify(pdf_stem)
+    title = args.title or pdf_stem
+    module_id = os.getenv("PFPDF_MODULE_ID", module_id)
+    title = os.getenv("PFPDF_TITLE", title)
+
     extracted_images = extract_images(
         args.pdf,
         args.out,
@@ -252,11 +323,14 @@ def main(argv: List[str] | None = None) -> None:
         tags_from_text=args.tags_from_text,
         note=args.note,
     )
+    compendium = build_journal_compendium(extracted_images, module_id, title)
 
     output_dir = Path(args.out)
     json_path = output_dir / "scenes.json"
     with json_path.open("w", encoding="utf-8") as file:
         json.dump({"scenes": foundry_scenes}, file, indent=2)
+    write_journal_compendium(output_dir, compendium)
+    write_module_manifest(output_dir, module_id, title)
 
     print(
         f"Extracted {len(extracted_images)} images. Scene definitions saved to {json_path}"
